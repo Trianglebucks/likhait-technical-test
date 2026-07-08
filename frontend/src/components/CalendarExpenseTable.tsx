@@ -2,7 +2,7 @@
  * Calendar expense table component
  */
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Expense, ExpenseFormData } from "../types";
 import { formatCurrency, formatDate } from "../utils/expenseUtils";
 import { getCategoryEmoji } from "../constants/categoryEmojis";
@@ -28,10 +28,52 @@ export function CalendarExpenseTable({
   const [deletingExpense, setDeletingExpense] = useState<Expense | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
-  const totalPages = Math.ceil(expenses.length / ITEMS_PER_PAGE);
+  const [sortColumn, setSortColumn] = useState<'date' | 'description' | 'category' | 'amount' | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc' | null>(null);
+
+  const handleSort = (column: 'date' | 'description' | 'category' | 'amount') => {
+    if (sortColumn === column) {
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else if (sortDirection === 'desc') {
+        setSortColumn(null);
+        setSortDirection(null);
+      } else {
+        setSortDirection('asc');
+      }
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1);
+  };
+
+  const sortedExpenses = useMemo(() => {
+    if (!sortColumn || !sortDirection) {
+      return expenses;
+    }
+
+    return [...expenses].sort((a, b) => {
+      let comparison = 0;
+
+      if (sortColumn === 'date') {
+        comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+      } else if (sortColumn === 'amount') {
+        comparison = Number(a.amount) - Number(b.amount);
+      } else if (sortColumn === 'description') {
+        comparison = a.description.localeCompare(b.description);
+      } else if (sortColumn === 'category') {
+        comparison = a.category.localeCompare(b.category);
+      }
+
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  }, [expenses, sortColumn, sortDirection]);
+
+  const totalPages = Math.ceil(sortedExpenses.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
-  const currentExpenses = expenses.slice(startIndex, endIndex);
+  const currentExpenses = sortedExpenses.slice(startIndex, endIndex);
 
   const handleEdit = (expense: Expense) => {
     setEditingExpense(expense);
@@ -90,6 +132,23 @@ export function CalendarExpenseTable({
     borderBottom: `2px solid ${COLORS.border}`,
   };
 
+  const getHeaderStyle = (column: 'date' | 'description' | 'category' | 'amount'): React.CSSProperties => {
+    return {
+      ...thStyle,
+      cursor: "pointer",
+      userSelect: "none",
+      backgroundColor: sortColumn === column ? COLORS.secondary.s02 : undefined,
+      transition: "background-color 0.2s",
+    };
+  };
+
+  const renderSortIndicator = (column: 'date' | 'description' | 'category' | 'amount') => {
+    if (sortColumn !== column) {
+      return <span style={{ color: COLORS.text.secondary, marginLeft: "0.25rem" }}>⇅</span>;
+    }
+    return sortDirection === 'asc' ? ' ▲' : ' ▼';
+  };
+
   const tdStyle: React.CSSProperties = {
     padding: "0.75rem",
     borderBottom: `1px solid ${COLORS.border}`,
@@ -122,10 +181,18 @@ export function CalendarExpenseTable({
       <table style={tableStyle}>
         <thead style={theadStyle}>
           <tr>
-            <th style={thStyle}>Date</th>
-            <th style={thStyle}>Description</th>
-            <th style={thStyle}>Category</th>
-            <th style={thStyle}>Amount</th>
+            <th style={getHeaderStyle('date')} onClick={() => handleSort('date')}>
+              Date{renderSortIndicator('date')}
+            </th>
+            <th style={getHeaderStyle('description')} onClick={() => handleSort('description')}>
+              Description{renderSortIndicator('description')}
+            </th>
+            <th style={getHeaderStyle('category')} onClick={() => handleSort('category')}>
+              Category{renderSortIndicator('category')}
+            </th>
+            <th style={getHeaderStyle('amount')} onClick={() => handleSort('amount')}>
+              Amount{renderSortIndicator('amount')}
+            </th>
             <th style={{ ...thStyle, textAlign: "center" }}>Actions</th>
           </tr>
         </thead>
