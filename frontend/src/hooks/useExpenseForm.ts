@@ -47,6 +47,14 @@ export function useExpenseForm({ initialData, onSubmit }: UseExpenseFormProps) {
 
     if (!formData.date) {
       newErrors.date = "Date is required";
+    } else {
+      const inputDate = new Date(formData.date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      inputDate.setHours(0, 0, 0, 0);
+      if (inputDate > today) {
+        newErrors.date = "Date cannot be in the future";
+      }
     }
 
     setErrors(newErrors);
